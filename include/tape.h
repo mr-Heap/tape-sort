@@ -1,13 +1,14 @@
 //
 // Created by marina on 10/17/23.
 //
-
+/**
+ *
+ *
+ */
 #include <utility>
 #include <string>
 #include <cstdio>
 #include <fstream>
-
-// TODO: add noexcept
 
 namespace tape {
 
@@ -15,7 +16,6 @@ namespace tape {
     class InterfaceTape {
 
     public:
-        // TODO: std::forward in call and check
         InterfaceTape() = default;
 
         // return value of number on runner position
@@ -23,7 +23,6 @@ namespace tape {
 
         // puts value to the runner position
         virtual void write(T &value) = 0;
-
         virtual void write(T &&value) = 0;
 
         // return true if position is on the end of tape
@@ -32,10 +31,10 @@ namespace tape {
         // return true if position is on the start of tape
         [[nodiscard]] virtual bool is_start() = 0;
 
-        // move tape to the left of Runner
+        // move tape to the left of Runner. If runner is on the end of tape, left() will do nothing
         virtual void left() = 0;
 
-        // move tape to the right of Runner
+        // move tape to the right of Runner. If runner is on the start of tape, right() will do nothing
         virtual void right() = 0;
 
         ~InterfaceTape() = default;
@@ -43,7 +42,7 @@ namespace tape {
     };
 
     template<typename T>
-    struct Runner {             //TODO: how to make Runner protected?
+    struct Runner {
 
         static T get(std::fstream &file) {
             T result;
@@ -62,18 +61,18 @@ namespace tape {
 
     public:
 
-        TapeBinary() = default;
+        TapeBinary() noexcept = default;
 
         TapeBinary(TapeBinary<T> &&other) noexcept {
             this->binary_file_ = std::move(other.binary_file_);
         }
 
 
-        explicit TapeBinary(const std::string &file_name) {         // TODO: why explicit?
+        explicit TapeBinary(const std::string &file_name) {
             binary_file_.open(file_name, std::ios::in | std::ios::out | std::ios::trunc);
         }
 
-        explicit TapeBinary(std::string &&file_name) {         // TODO: why explicit?
+        explicit TapeBinary(std::string &&file_name) {
             binary_file_.open(file_name, std::ios::in | std::ios::out | std::ios::trunc);
         }
 
@@ -85,7 +84,7 @@ namespace tape {
         };
 
 
-        T read() override {         // TODO: check copy-optimization
+        T read() override {
             T result = Runner<T>::get(binary_file_);
             right();
             return result;
@@ -93,7 +92,7 @@ namespace tape {
 
         void write(T &value) override {
             Runner<T>::set(binary_file_, value);
-            binary_file_.seekg((-1) * static_cast<int>(sizeof(T)), std::ios::cur);
+            right();
         }
 
         void write(T &&value) override {
@@ -109,22 +108,24 @@ namespace tape {
         [[nodiscard]] bool is_eot() override {
             std::streampos offset = binary_file_.tellg();
             bool is_eof = binary_file_.get() == -1;
-
             binary_file_.clear();
-            binary_file_.seekg(offset); // TODO: unget maybe?
+            binary_file_.seekg(offset);
             return is_eof;
         }
 
         void left() override {
-            binary_file_.seekg(sizeof(T), std::ios::cur);
+            if (!is_eot()) {
+                binary_file_.seekg(sizeof(T), std::ios::cur);
+            }
         }
 
-        void right() override { // TODO: shift < 0 || shift > size??
-            binary_file_.seekg((-1) * static_cast<int>(sizeof(T)), std::ios::cur);
+        void right() override {
+            if(!is_start()) {
+                binary_file_.seekg((-1) * static_cast<int>(sizeof(T)), std::ios::cur);
+            }
         }
 
         ~TapeBinary() = default;
-        // TODO: exception if file_ is open, program fail and file_ is still open?
 
     protected:
         std::fstream binary_file_;
@@ -150,14 +151,14 @@ namespace tape {
 
 
     private:
-        std::string generate_binary_name(const std::string &file_name) { // TODO: string view?
+        std::string generate_binary_name(const std::string &file_name) {
             size_t dot = file_name.find_last_of('.');
             return file_name.substr(0, dot) + ".bin";
         }
 
         void move_to_binary_file(const std::string &bin_file_name) {
             this->binary_file_.open(bin_file_name, std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
-            while (!eof()) { // TODO: is it correct?
+            while (!eof()) {
                 T n;
                 file_ >> n;
                 this->binary_file_.write(reinterpret_cast<char *>(&n), sizeof n);

@@ -1,6 +1,4 @@
 #include <iostream>
-#include <fstream>
-#include <vector>
 #include <algorithm>
 #include <iterator>
 
@@ -14,6 +12,11 @@ int main() {
     size_t k = 6;
 
     Sort<int>::sort(in, out, k);
+
+    while(!out.is_eot()) {
+        std::cout << out.read() << '\n';
+        out.left();
+    }
 
 //    std::fstream bin;
 //    bin.open("../to-remove/to-rm.txt", std::ios::out | std::ios::binary);
