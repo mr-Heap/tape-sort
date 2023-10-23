@@ -1,3 +1,5 @@
+#pragma once
+
 #include <fstream>
 #include <list>
 #include <deque>
@@ -7,86 +9,79 @@
 
 
 namespace tape {
-    class ITapeObserver {
+    template<typename T>
+    class EmulatedBinaryTape;
+
+    template<typename T>
+    class Emulator {
     public:
-        virtual void display() = 0;
+        static void add_observer(EmulatedBinaryTape<T> *tape);
+
+        static void remove_observer(EmulatedBinaryTape<T> *tape);
+
+        static void notify_observers();
+
+        static size_t get_capacity();
+
+
+
+        static void set_parameters(size_t capacity, size_t delay);
 
     protected:
-        ITapeObserver() noexcept = default;
+        static std::list<EmulatedBinaryTape<T> *> tapes_;
+    private:
+        static size_t delay_;
+        static size_t capacity_;
     };
 
-    class ITapeObservable {
-    public:
-        virtual void add_observer(ITapeObserver *observer) = 0;
+    template<typename T>
+    std::list<EmulatedBinaryTape<T> *> Emulator<T>::tapes_;
 
-        virtual void remove_observer(ITapeObserver *observer) = 0;
+    template<typename T>
+    size_t Emulator<T>::capacity_;
 
-        virtual void notify_observers() = 0;
+    template<typename T>
+    size_t Emulator<T>::delay_;
 
-    protected:
-        ITapeObservable() noexcept = default;
-    };
-
-    //Singleton class
-    class Emulator final : ITapeObservable {
-    public:
-
-        Emulator(Emulator &other) = delete;
-
-        void operator=(const Emulator &) = delete;
-
-        static Emulator *get_instance(size_t capacity_, size_t delay_);
-
-        static Emulator *get_instance();
-
-        void add_observer(ITapeObserver *observer) override {
-            observers_.emplace_back(observer);
-            notify_observers();
-        }
-
-        void remove_observer(ITapeObserver *observer) override {
-            for (auto it = observers_.begin(); it != observers_.end(); it++) {
-                if (*it == observer) {
-                    it = observers_.erase(it);
-                }
-            }
-            notify_observers();
-        }
-
-        void notify_observers() override {
-#ifdef _WIN32
-            system("cls");
-#endif
-#if defined(__linux__) || defined(__APPLE__)
-            system("clear");
-#endif
-            for (ITapeObserver *&observer: observers_) {
-                observer->display();
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(delay_));
-        }
-
-    public:
-        Emulator(const size_t capacity, const size_t delay) : capacity_(capacity), delay_(delay) {}
-
-        size_t capacity_;
-    protected:
-        static Emulator *emulator_;
-        std::list<ITapeObserver *> observers_;
-        size_t delay_;
-    };
-
-    Emulator *Emulator::emulator_ = nullptr;
-
-    Emulator *Emulator::get_instance(const size_t capacity_, const size_t delay_) {
-        if (emulator_ == nullptr) {
-            return new Emulator(capacity_, delay_);
-        }
-        return emulator_;
+    template<typename T>
+    void Emulator<T>::add_observer(EmulatedBinaryTape<T> *tape) {
+        tapes_.emplace_back(tape);
+        notify_observers();
     }
 
-    Emulator *Emulator::get_instance() {
-        return get_instance(5, 20);
+    template<typename T>
+    void Emulator<T>::remove_observer(EmulatedBinaryTape<T> *tape) {
+        for (auto it = tapes_.begin(); it != tapes_.end(); it++) {
+            if (*it == tape) {
+                it = tapes_.erase(it);
+            }
+        }
+        notify_observers();
+    }
+
+    template<typename T>
+    void Emulator<T>::notify_observers() {
+#ifdef _WIN32
+        system("cls");
+#endif
+#if defined(__linux__) || defined(__APPLE__)
+        system("clear");
+#endif
+        for (EmulatedBinaryTape<T> *&tape: tapes_) {
+            tape->display();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay_));
+    }
+
+    template<typename T>
+    void Emulator<T>::set_parameters(size_t capacity, size_t delay) {
+        capacity_ = capacity;
+        delay_ = delay;
+    }
+
+    template<typename T>
+    size_t Emulator<T>::get_capacity() {
+        return capacity_;
     }
 
 
@@ -206,27 +201,27 @@ namespace tape {
 
 
     template<typename T>
-    class EmulatedBinaryTape : public BinaryTape<T>, ITapeObserver {
+    class EmulatedBinaryTape : public BinaryTape<T> {
     public:
         EmulatedBinaryTape() : BinaryTape<T>() {
-            emulator_->add_observer(this);
+            Emulator<T>::add_observer(this);
         }
 
         explicit EmulatedBinaryTape(BinaryTape<T> &&other) noexcept {
             this->binary_file_ = std::move(other.binary_file_);
-            emulator_->add_observer(this);
+            Emulator<T>::add_observer(this);
         }
 
         explicit EmulatedBinaryTape(const std::string &file_name) : BinaryTape<T>(file_name) {
-            emulator_->add_observer(this);
+            Emulator<T>::add_observer(this);
         }
 
         explicit EmulatedBinaryTape(std::string &&file_name) : BinaryTape<T>(file_name) {
-            emulator_->add_observer(this);
+            Emulator<T>::add_observer(this);
         }
 
-        void display() override {
-            for (size_t i = 0; i < emulator_->capacity_; i++) {
+        void display() {
+            for (size_t i = 0; i < Emulator<T>::get_capacity(); i++) {
                 std::cout << (i < splice_.size() ? std::to_string(splice_[i]) : "_") << " ";
             }
             std::cout << "\n";
@@ -254,16 +249,16 @@ namespace tape {
             }
             BinaryTape<T>::left();
             if (!this->is_eot()) {
-                if (pos_ == emulator_->capacity_ - 1) {
+                if (pos_ == Emulator<T>::get_capacity() - 1) {
                     splice_.push_back(this->read());
                 }
             }
-            if (pos_ == emulator_->capacity_ - 1) {
+            if (pos_ == Emulator<T>::get_capacity() - 1) {
                 splice_.pop_front();
             }
             pos_++;
-            pos_ = std::min(pos_, emulator_->capacity_ - 1);
-            emulator_->notify_observers();
+            pos_ = std::min(pos_, Emulator<T>::get_capacity() - 1);
+            Emulator<T>::notify_observers();
         }
 
         void right() override {
@@ -271,21 +266,20 @@ namespace tape {
             if (pos_ == 0) {
                 splice_.push_front(this->read());
             }
-            if (pos_ == 0 && emulator_->capacity_ + 1 == splice_.size()) {
+            if (pos_ == 0 && Emulator<T>::get_capacity() + 1 == splice_.size()) {
                 splice_.pop_back();
             }
             if (pos_ > 0) {
                 --pos_;
             }
-            emulator_->notify_observers();
+            Emulator<T>::notify_observers();
         }
 
         ~EmulatedBinaryTape() {
-            emulator_->remove_observer(this);
+            Emulator<T>::remove_observer(this);
         }
 
     private:
-        Emulator *emulator_ = Emulator::get_instance();
         std::deque<T> splice_;
         size_t pos_ = 0;
 
@@ -295,7 +289,7 @@ namespace tape {
             } else {
                 splice_.push_back(value);
             }
-            emulator_->notify_observers();
+            Emulator<T>::notify_observers();
         }
 
         size_t get_n_size(const T &number) {
@@ -373,3 +367,4 @@ namespace tape {
     };
 
 }
+
