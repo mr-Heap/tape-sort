@@ -1,50 +1,46 @@
-//
-// Created by marina on 10/17/23.
-//
+#pragma once
 
-#include <type_traits>
-#include <cassert>
-#include <vector>
 #include <algorithm>
+#include <cassert>
 #include <queue>
+#include <type_traits>
+#include <vector>
 
 #include "tape.h"
 
 using namespace tape;
 
-template<typename T, typename Comparator = std::less<T>>
+template<typename T, bool emulated = false, typename Comparator = std::less<T>>
 class Sort {
 public:
-    static_assert((std::is_default_constructible_v<T> && std::is_move_constructible_v<T>
-                    && std::is_copy_constructible_v<T> && std::is_copy_constructible_v<T>
-                    && std::is_copy_assignable_v<T> && std::is_destructible_v<T>));
+    static_assert((std::is_default_constructible_v<T> &&
+                   std::is_move_constructible_v<T> &&
+                   std::is_copy_constructible_v<T> &&
+                   std::is_copy_constructible_v<T> &&
+                   std::is_copy_assignable_v<T> && std::is_destructible_v<T>));
 
-    static void sort(Tape<T> &in, Tape<T> &out, size_t &M) {
+    using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
+
+
+    static void sort(Tape<T, emulated> &in, Tape<T, emulated> &out, size_t M) {
         {
             Comparator comp;
-            TapeBinary<T> tape_a("../tmp/tape_a.bin");
-            TapeBinary<T>* tape_a_ptr = &tape_a; // I don't use smart pointers because object will be destruct independently, and it isn't depend on ptr
-            TapeBinary<T> tape_b("../tmp/tape_b.bin");
-            TapeBinary<T> * tape_b_ptr = &tape_b;
+            TapeType tape_a("../tmp/tape_a.bin");
+            TapeType *tape_a_ptr = &tape_a; // I don't use smart pointers because object will be destruct, and it isn't depend on ptr
+            TapeType tape_b("../tmp/tape_b.bin");
+            TapeType *tape_b_ptr = &tape_b;
+            move_to_start(in);
+            move_to_start(out);
             sort_blocks(in, tape_a, M, comp);
             const size_t N = tape_size(tape_a);
-
+            move_to_start(tape_a);
             size_t k = M;
-//        const size_t buf_size = M / 2;
             while (k < N) {
                 while (!tape_a_ptr->is_eot()) {
-                    TapeBinary<T> first("../tmp/first.bin");
-                    for (size_t i = 0; i < k && !tape_a_ptr->is_eot(); ++i) {
-                        first.write(tape_a_ptr->read());
-                        first.left();
-                        tape_a_ptr->left();
-                    }
-                    TapeBinary<T> second("../tmp/second.bin");
-                    for (size_t i = 0; i < k && !tape_a_ptr->is_eot(); ++i) {
-                        second.write(tape_a_ptr->read());
-                        second.left();
-                        tape_a_ptr->left();
-                    }
+                    TapeType first("../tmp/first.bin");
+                    TapeType second("../tmp/second.bin");
+                    copy_to_tape(*tape_a_ptr, first, k);
+                    copy_to_tape(*tape_a_ptr, second, k);
                     move_to_start(first);
                     move_to_start(second);
                     merge(first, second, *tape_b_ptr, comp, M);
@@ -62,16 +58,15 @@ public:
             }
             move_to_start(out);
         }
-        remove("../tmp/tape_a.bin");;
+        remove("../tmp/tape_a.bin");
         remove("../tmp/tape_b.bin");
         remove("../tmp/first.bin");
         remove("../tmp/second.bin");
-
     }
 
 private:
-
-    static void sort_blocks(Tape<T> &in, TapeBinary<T> &out, size_t &M, Comparator &comp) {
+    static void sort_blocks(TapeType &in, TapeType &out, size_t &M,
+                            Comparator &comp) {
         std::vector<T> block;
         block.reserve(M);
 
@@ -89,13 +84,36 @@ private:
         }
     }
 
-    static void move_to_start(TapeBinary<T> &tp) {
+    static size_t tape_size(BinaryTape<T> &tp) {
+//        while (!tp.is_eot()) {
+//            tp.left();
+//        }
+        size_t count = 0;
+        while (!tp.is_start()) {
+            tp.right();
+            count++;
+        }
+        return count;
+    }
+
+
+    static void move_to_start(TapeType &tp) {
         while (!tp.is_start()) {
             tp.right();
         }
     }
 
-    static void merge(TapeBinary<T>& tape_a, TapeBinary<T>& tape_b, TapeBinary<T>& out, Comparator& comp, size_t& M) {
+    static void copy_to_tape(TapeType &from, TapeType &to, size_t &amount) {
+        for (size_t i = 0; i < amount && !from.is_eot(); ++i) {
+            to.write(from.read());
+            to.left();
+            from.left();
+        }
+    }
+
+
+    static void merge(TapeType &tape_a, TapeType &tape_b,
+                      TapeType &out, Comparator &comp, size_t &M) {
 
         std::deque<T> buffer_a, buffer_b; // two buffers of size M/2, summary M
         for (size_t i = 0; i < M / 2; ++i) {
@@ -109,22 +127,25 @@ private:
             }
         }
 
+
         while (!buffer_a.empty() && !buffer_b.empty()) {
             if (comp(buffer_a.front(), buffer_b.front())) {
-                write_and_update_buffer(tape_a, buffer_a, out);
+                buffer_to_tape(tape_a, buffer_a, out);
             } else {
-                write_and_update_buffer(tape_b, buffer_b, out);
+                buffer_to_tape(tape_b, buffer_b, out);
             }
         }
         while (!buffer_a.empty()) {
-            write_and_update_buffer(tape_a, buffer_a, out);
+            buffer_to_tape(tape_a, buffer_a, out);
         }
         while (!buffer_b.empty()) {
-            write_and_update_buffer(tape_b, buffer_b, out);
+            buffer_to_tape(tape_b, buffer_b, out);
         }
     }
 
-    static void write_and_update_buffer(TapeBinary<T> & tape, std::deque<T> & buffer, TapeBinary<T> & out) {
+    static void buffer_to_tape(TapeType &tape,
+                               std::deque<T> &buffer,
+                               TapeType &out) {
         out.write(buffer.front());
         out.left();
         buffer.pop_front();
@@ -132,17 +153,5 @@ private:
             buffer.emplace_back(tape.read());
             tape.left();
         }
-    }
-
-    static size_t tape_size(TapeBinary<T>& tp) {
-        while(!tp.is_eot()) {
-            tp.right();
-        }
-        size_t count = 0;
-        while (!tp.is_start()) {
-            tp.right();
-            count++;
-        }
-        return count;
     }
 };
