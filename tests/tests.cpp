@@ -1,5 +1,3 @@
-#pragma once
-
 #include <gtest/gtest.h>
 #include <random>
 
@@ -92,7 +90,7 @@ TEST(Sort, SortWithComparator) {
         a.right();
     }
 
-    Sort<int, false, std::greater<>>::sort(a, b, 5);
+    Sort<int, std::greater<>>::sort(a, b, 5);
     std::sort(vec.begin(), vec.end());
     b.move_to_start();
     for(int i = vec.size() - 1; i >= 0; --i) {

@@ -32,7 +32,7 @@
     tape::Tape<int, true> in("path/to/file-in"); // Лента с эмуляцией
     tape::Tape<int> out("path/to/file/out"); //Выходная лента без эмуляции 
     size_t M = 3; 
-    Sort<int, true>::sort(in, out, M); // Сортировка с эмуляцией
+    Sort<int>::sort(in, out, M); // Сортировка для типа ленты Tape<int>
 ```
 
 ### Тесты

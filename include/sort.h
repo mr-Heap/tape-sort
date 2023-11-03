@@ -10,21 +10,22 @@
 
 using namespace tape;
 
-template<typename T, bool emulated = false, typename Comparator = std::less<T>>
+template<typename T, typename Comparator = std::less<T>>
 class Sort {
 public:
     static_assert((std::is_default_constructible_v<T> &&
                    std::is_move_constructible_v<T> &&
                    std::is_copy_constructible_v<T> &&
-                   std::is_copy_constructible_v<T> &&
                    std::is_copy_assignable_v<T> && std::is_destructible_v<T>));
 
-    using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
+//    using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
 
-
-    static void sort(Tape<T, emulated> &in, Tape<T, emulated> &out, size_t M) {
+    template<typename TapeType>
+    static void sort(TapeType & in, TapeType & out, size_t M) {
         {
             Comparator comp;
+
+
             TapeType tape_a("../tmp/tape_a.bin");
             TapeType *tape_a_ptr = &tape_a; // I don't use smart pointers because object will be destruct, and it isn't depend on ptr
             TapeType tape_b("../tmp/tape_b.bin");
@@ -65,7 +66,7 @@ public:
     }
 
 private:
-    static void sort_blocks(TapeType &in, TapeType &out, size_t &M,
+    static void sort_blocks(auto &in, auto &out, size_t &M,
                             Comparator &comp) {
         std::vector<T> block;
         block.reserve(M);
@@ -84,7 +85,7 @@ private:
         }
     }
 
-    static size_t tape_size(BinaryTape<T> &tp) {
+    static size_t tape_size(auto &tp) {
 //        while (!tp.is_eot()) {
 //            tp.left();
 //        }
@@ -97,13 +98,13 @@ private:
     }
 
 
-    static void move_to_start(TapeType &tp) {
+    static void move_to_start(auto &tp) {
         while (!tp.is_start()) {
             tp.right();
         }
     }
 
-    static void copy_to_tape(TapeType &from, TapeType &to, size_t &amount) {
+    static void copy_to_tape(auto &from, auto &to, size_t &amount) {
         for (size_t i = 0; i < amount && !from.is_eot(); ++i) {
             to.write(from.read());
             to.left();
@@ -112,8 +113,8 @@ private:
     }
 
 
-    static void merge(TapeType &tape_a, TapeType &tape_b,
-                      TapeType &out, Comparator &comp, size_t &M) {
+    static void merge(auto &tape_a, auto &tape_b,
+                      auto &out, Comparator &comp, size_t &M) {
 
         std::deque<T> buffer_a, buffer_b; // two buffers of size M/2, summary M
         for (size_t i = 0; i < M / 2; ++i) {
@@ -143,9 +144,9 @@ private:
         }
     }
 
-    static void buffer_to_tape(TapeType &tape,
+    static void buffer_to_tape(auto &tape,
                                std::deque<T> &buffer,
-                               TapeType &out) {
+                               auto &out) {
         out.write(buffer.front());
         out.left();
         buffer.pop_front();
