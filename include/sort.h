@@ -18,7 +18,13 @@ public:
                    std::is_copy_constructible_v<T> &&
                    std::is_copy_assignable_v<T> && std::is_destructible_v<T>));
 
-//    using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
+    template<typename TapeType>
+    static void sort(TapeType & in, TapeType & out, size_t M) {
+        size_t N = tape_size(in);
+        sort(in, out, N, M);
+    }
+
+
 
     template<typename TapeType>
     static void sort(TapeType & in, TapeType & out, size_t N, size_t M) {
@@ -29,10 +35,7 @@ public:
             sort_block(in, out, M, comp);
             return;
         }
-//        size_t n = tape_size(in);
-
         std::vector<TapeType*> tapes;
-        //rec_sort(in, out, N, M);
         for (size_t i = 0; i < M; ++i) {
             tapes.emplace_back(new TapeType());
             size_t size = N / M + (i < N % M);
@@ -59,15 +62,9 @@ public:
         for (auto & tape : tapes) {
             delete tape;
         }
-        // TODO: remove (other block {})
     }
 
 private:
-
-    static void rec_sort(auto &in, auto &out, size_t N, size_t M) {
-
-    }
-
     static void from_tape_to_tape(auto &in, auto &out, size_t n) {
         for (size_t i = 0; i < n && !in.is_eot(); ++i) {
             out.write(in.read());
@@ -94,35 +91,10 @@ private:
         move_to_start(out);
     }
 
-//    static void sort_layer(auto & tapes, auto & out, size_t M) {
-//        std::priority_queue<T> queue;
-//        T mx;
-//        do {
-//            for (auto & i : tapes) {
-//                if (i->read())
-//                buffer.insert(i->read());
-//                if (buffer.size() == M) {
-//                    buffer.erase(buffer.size() - 1);
-//                }
-//            }
-//            mx = *(buffer.begin() + buffer.size() - 1);
-//        } while (!buffer.empty());
-//
-//
-//    }
-
-//    static void buffer_to_tape(std::set<T> &buffer, auto &out) {
-//        while(!buffer.empty()) {
-//            out.write
-//        }
-//    }
-
-
-
     static size_t tape_size(auto &tp) {
-//        while (!tp.is_eot()) {
-//            tp.left();
-//        }
+        while (!tp.is_eot()) {
+            tp.left();
+        }
         size_t count = 0;
         while (!tp.is_start()) {
             tp.right();
@@ -137,46 +109,4 @@ private:
             tp.right();
         }
     }
-
-    static void copy_to_tape(auto &from, auto &to, size_t &amount) {
-        for (size_t i = 0; i < amount && !from.is_eot(); ++i) {
-            to.write(from.read());
-            to.left();
-            from.left();
-        }
-    }
-
-
-    static void merge(auto &tape_a, auto &tape_b,
-                      auto &out, Comparator &comp, size_t &M) {
-
-        std::deque<T> buffer_a, buffer_b; // two buffers of size M/2, summary M
-        for (size_t i = 0; i < M / 2; ++i) {
-            if (!tape_a.is_eot()) {
-                buffer_a.emplace_back(tape_a.read());
-                tape_a.left();
-            }
-            if (!tape_b.is_eot()) {
-                buffer_b.emplace_back(tape_b.read());
-                tape_b.left();
-            }
-        }
-
-
-        while (!buffer_a.empty() && !buffer_b.empty()) {
-            if (comp(buffer_a.front(), buffer_b.front())) {
-                buffer_to_tape(tape_a, buffer_a, out);
-            } else {
-                buffer_to_tape(tape_b, buffer_b, out);
-            }
-        }
-        while (!buffer_a.empty()) {
-            buffer_to_tape(tape_a, buffer_a, out);
-        }
-        while (!buffer_b.empty()) {
-            buffer_to_tape(tape_b, buffer_b, out);
-        }
-    }
-
-
 };

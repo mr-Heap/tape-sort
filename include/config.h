@@ -35,6 +35,8 @@ void Config::load(const std::string &config_path) {
     std::string currentSection;
     std::string line;
     while (std::getline(config_file, line)) {
+        line.erase(line.find_last_not_of('\r') + 1);
+        line.erase(line.find_last_not_of('\n') + 1);
         if (line.empty() || line[0] == ';') {
             continue;
         } else if (line[0] == '[' && line[line.length() - 1] == ']') {
@@ -50,6 +52,5 @@ void Config::load(const std::string &config_path) {
     }
 
     config_file.close();
-
 }
 

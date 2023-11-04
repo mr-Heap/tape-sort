@@ -11,7 +11,7 @@ add_subdirectory(googletest)
 
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
-add_executable(tape_sort src/main.cpp include/tape.h include/sort.h tests/tests.cpp include/config.h)
+add_executable(tape_sort src/main.cpp include/tape.h include/sort.h tests/tests.cpp include/config.h include/directory.h)
 
 target_link_libraries(tape_sort GTest::gtest GTest::gtest_main)
 

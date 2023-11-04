@@ -11,6 +11,8 @@
 #include <ctime>
 #include <random>
 
+#include "directory.h"
+
 namespace tape {
     template<typename T>
     class EmulatedBinaryTape;
@@ -197,6 +199,9 @@ namespace tape {
                 binary_file_.seekp(set_pos, std::ios::beg);
             }
         }
+        ~BinaryTape() { //todo: double close
+            binary_file_.close();
+        }
 
     protected:
         std::fstream binary_file_{};
@@ -307,26 +312,22 @@ namespace tape {
         using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
     public:
         Tape() {
-//            auto now = std::chrono::system_clock::now();
-//
-//            auto unixTimeStamp =
-//                    std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
-            std::random_device rd;
-            std::mt19937 mt(rd());
-            std::uniform_int_distribution<long long> dist(1, 1000000000000);
-
-            std::string file_name = "../tmp/tmp/" + std::to_string(dist(mt)) + ".txt";
+            std::string file_name = Directory::get_new_tape_name();
+            this->file_name_ = file_name;
+            is_self_deleted = true;
             file_.open(file_name, std::ios::in | std::ios::out | std::ios::trunc);
+            Directory::add_tape();
             raw_to_binary(file_name);
         }
 
-        explicit Tape(std::string &&file_name, std::ios::openmode mode = std::ios::in | std::ios::out) : TapeType() {
+        explicit Tape(std::string &&file_name, std::ios::openmode mode = std::ios::in | std::ios::out) : TapeType(), file_name_(file_name) {
             file_.open(file_name, mode | std::ios::in | std::ios::out);
+            Directory::add_tape();
             raw_to_binary(file_name);
         }
-
-        explicit Tape(std::string &file_name, std::ios::openmode mode = std::ios::in | std::ios::out) : TapeType() {
+        explicit Tape(std::string &file_name, std::ios::openmode mode = std::ios::in | std::ios::out) : TapeType(), file_name_(file_name) {
             file_.open(file_name, mode | std::ios::in | std::ios::out);
+            Directory::add_tape();
             raw_to_binary(file_name);
         }
 
@@ -350,19 +351,16 @@ namespace tape {
         }
 
         ~Tape() {
-            file_.close();
-          //todo: remove file tape and in binary tapes.
+            if (is_self_deleted) {
+                Directory::delete_tape(std::forward<std::string>(file_name_)); //todo::
+            }
+            Directory::delete_tape(Directory::generate_binary_name(std::forward<std::string>(file_name_)));
+            Directory::remove_tape();
         }
 
     private:
-
-        std::string generate_binary_name(const std::string &file_name) { // TODO: string view?
-            size_t dot = file_name.find_last_of('.');
-            return file_name.substr(0, dot) + ".bin";
-        }
-
-        void raw_to_binary(std::string &file_name) {
-            std::string bin_file_name = generate_binary_name(file_name);
+        void raw_to_binary(std::string & file_name) { //todo ???
+            std::string bin_file_name = Directory::generate_binary_name(std::forward<std::string>(file_name));
             this->binary_file_.open(bin_file_name, std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
             while (!eof()) {
                 T n;
@@ -382,7 +380,7 @@ namespace tape {
 
     private:
         std::fstream file_;
+        std::string file_name_;
+        bool is_self_deleted = false;
     };
-
 }
-
