@@ -21,69 +21,103 @@ public:
 //    using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
 
     template<typename TapeType>
-    static void sort(TapeType & in, TapeType & out, size_t M) {
-        {
-            Comparator comp;
-
-
-            TapeType tape_a("../tmp/tape_a.bin");
-            TapeType *tape_a_ptr = &tape_a; // I don't use smart pointers because object will be destruct, and it isn't depend on ptr
-            TapeType tape_b("../tmp/tape_b.bin");
-            TapeType *tape_b_ptr = &tape_b;
-            move_to_start(in);
-            move_to_start(out);
-            sort_blocks(in, tape_a, M, comp);
-            const size_t N = tape_size(tape_a);
-            move_to_start(tape_a);
-            size_t k = M;
-            while (k < N) {
-                while (!tape_a_ptr->is_eot()) {
-                    TapeType first("../tmp/first.bin");
-                    TapeType second("../tmp/second.bin");
-                    copy_to_tape(*tape_a_ptr, first, k);
-                    copy_to_tape(*tape_a_ptr, second, k);
-                    move_to_start(first);
-                    move_to_start(second);
-                    merge(first, second, *tape_b_ptr, comp, M);
-                }
-                k *= 2;
-                move_to_start(tape_a);
-                move_to_start(tape_b);
-                std::swap(tape_a_ptr, tape_b_ptr);
-            }
-            move_to_start(*tape_a_ptr);
-            while (!tape_a_ptr->is_eot()) {
-                out.write(tape_a_ptr->read());
-                tape_a_ptr->left();
-                out.left();
-            }
-            move_to_start(out);
+    static void sort(TapeType & in, TapeType & out, size_t N, size_t M) {
+        static_assert((std::is_default_constructible_v<TapeType>));
+        Comparator comp;
+        move_to_start(in);
+        if (N <= M) {
+            sort_block(in, out, M, comp);
+            return;
         }
-        remove("../tmp/tape_a.bin");
-        remove("../tmp/tape_b.bin");
-        remove("../tmp/first.bin");
-        remove("../tmp/second.bin");
+//        size_t n = tape_size(in);
+
+        std::vector<TapeType*> tapes;
+        //rec_sort(in, out, N, M);
+        for (size_t i = 0; i < M; ++i) {
+            tapes.emplace_back(new TapeType());
+            size_t size = N / M + (i < N % M);
+            from_tape_to_tape(in, *tapes[i], size);
+            sort(*tapes[i], *tapes[i], size, M);
+        }
+        auto tape_comp = [&comp](TapeType*& a, TapeType* & b) {return comp(b->read(), a->read());};
+        std::priority_queue<TapeType*, std::vector<TapeType*>, decltype(tape_comp)> queue(tape_comp);
+        for (auto & tape : tapes) {
+            queue.push(tape);
+        }
+        move_to_start(out); //todo useless???
+        while (!queue.empty()) {
+            TapeType * tape = queue.top();
+            queue.pop();
+            out.write(tape->read());
+            out.left();
+            tape->left();
+            if (!(tape->is_eot())) {
+                queue.push(tape);
+            }
+        }
+        move_to_start(out);
+        for (auto & tape : tapes) {
+            delete tape;
+        }
+        // TODO: remove (other block {})
     }
 
 private:
-    static void sort_blocks(auto &in, auto &out, size_t &M,
+
+    static void rec_sort(auto &in, auto &out, size_t N, size_t M) {
+
+    }
+
+    static void from_tape_to_tape(auto &in, auto &out, size_t n) {
+        for (size_t i = 0; i < n && !in.is_eot(); ++i) {
+            out.write(in.read());
+            in.left();
+            out.left();
+        }
+    }
+
+    static void sort_block(auto &in, auto &out, size_t &M,
                             Comparator &comp) {
         std::vector<T> block;
         block.reserve(M);
 
-        while (!in.is_eot()) {
-            for (size_t i = 0; i < M && !in.is_eot(); ++i) {
-                block.emplace_back(in.read());
-                in.left();
-            }
-            std::sort(block.begin(), block.end(), comp);
-            for (T &elem: block) {
-                out.write(elem);
-                out.left();
-            }
-            block.clear();
+        for (size_t i = 0; i < M && !in.is_eot(); ++i) {
+            block.emplace_back(in.read());
+            in.left();
         }
+        std::sort(block.begin(), block.end(), comp);
+        move_to_start(out);
+        for (T &elem: block) {
+            out.write(elem);
+            out.left();
+        }
+        move_to_start(out);
     }
+
+//    static void sort_layer(auto & tapes, auto & out, size_t M) {
+//        std::priority_queue<T> queue;
+//        T mx;
+//        do {
+//            for (auto & i : tapes) {
+//                if (i->read())
+//                buffer.insert(i->read());
+//                if (buffer.size() == M) {
+//                    buffer.erase(buffer.size() - 1);
+//                }
+//            }
+//            mx = *(buffer.begin() + buffer.size() - 1);
+//        } while (!buffer.empty());
+//
+//
+//    }
+
+//    static void buffer_to_tape(std::set<T> &buffer, auto &out) {
+//        while(!buffer.empty()) {
+//            out.write
+//        }
+//    }
+
+
 
     static size_t tape_size(auto &tp) {
 //        while (!tp.is_eot()) {
@@ -144,15 +178,5 @@ private:
         }
     }
 
-    static void buffer_to_tape(auto &tape,
-                               std::deque<T> &buffer,
-                               auto &out) {
-        out.write(buffer.front());
-        out.left();
-        buffer.pop_front();
-        if (!tape.is_eot()) {
-            buffer.emplace_back(tape.read());
-            tape.left();
-        }
-    }
+
 };

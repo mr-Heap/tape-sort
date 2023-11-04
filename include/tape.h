@@ -6,7 +6,10 @@
 #include <thread>
 #include <chrono>
 #include <iostream>
-
+#include <filesystem>
+#include <chrono>
+#include <ctime>
+#include <random>
 
 namespace tape {
     template<typename T>
@@ -303,6 +306,20 @@ namespace tape {
     class Tape : public std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type {
         using TapeType = typename std::conditional<emulated, EmulatedBinaryTape<T>, BinaryTape<T>>::type;
     public:
+        Tape() {
+//            auto now = std::chrono::system_clock::now();
+//
+//            auto unixTimeStamp =
+//                    std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+            std::random_device rd;
+            std::mt19937 mt(rd());
+            std::uniform_int_distribution<long long> dist(1, 1000000000000);
+
+            std::string file_name = "../tmp/tmp/" + std::to_string(dist(mt)) + ".txt";
+            file_.open(file_name, std::ios::in | std::ios::out | std::ios::trunc);
+            raw_to_binary(file_name);
+        }
+
         explicit Tape(std::string &&file_name, std::ios::openmode mode = std::ios::in | std::ios::out) : TapeType() {
             file_.open(file_name, mode | std::ios::in | std::ios::out);
             raw_to_binary(file_name);
@@ -334,6 +351,7 @@ namespace tape {
 
         ~Tape() {
             file_.close();
+          //todo: remove file tape and in binary tapes.
         }
 
     private:

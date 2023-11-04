@@ -66,7 +66,7 @@ TEST(Sort, SortRandom) {
     }
     tape::Tape<int> b("../tmp/file1-out.txt");
 
-    Sort<int>::sort(a, b, 5);
+    Sort<int>::sort(a, b, vec.size(), 5);
     std::sort(vec.begin(), vec.end());
     b.move_to_start();
     for(int & i : vec) {
@@ -90,7 +90,7 @@ TEST(Sort, SortWithComparator) {
         a.right();
     }
 
-    Sort<int, std::greater<>>::sort(a, b, 5);
+    Sort<int, std::greater<>>::sort(a, b, vec.size(), 5);
     std::sort(vec.begin(), vec.end());
     b.move_to_start();
     for(int i = vec.size() - 1; i >= 0; --i) {
@@ -103,7 +103,7 @@ TEST(Sort, SortEmptyFile) {
     tape::Tape<int> a("../tmp/file-empty.txt");
     tape::Tape<int> b("../tmp/file-empty-out.txt");
 
-    Sort<int>::sort(a, b, 5);
+    Sort<int>::sort(a, b, 0, 5);
 
     EXPECT_TRUE(b.is_start());
     EXPECT_TRUE(b.is_eot());
@@ -124,7 +124,7 @@ TEST(Sort, SortCheckM2) {
     }
     tape::Tape<int> b("../tmp/file1-out.txt");
 
-    Sort<int>::sort(a, b, 2);
+    Sort<int>::sort(a, b, vec.size(), 2);
     std::sort(vec.begin(), vec.end());
     b.move_to_start();
     for(int & i : vec) {
@@ -148,7 +148,7 @@ TEST(Sort, SortBigM) {
     }
     tape::Tape<int> b("../tmp/file1-out.txt");
 
-    Sort<int>::sort(a, b, 100);
+    Sort<int>::sort(a, b, vec.size(), 100);
     std::sort(vec.begin(), vec.end());
     b.move_to_start();
     for(int & i : vec) {
